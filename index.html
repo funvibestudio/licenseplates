@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Carte Interactive des États</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-color: #f9f9f9;
+      --text-color: #222;
+      --popup-bg: rgba(255, 255, 255, 0.95);
+      --accent-color: #007BFF;
+      --dark-popup: rgba(30, 30, 30, 0.95);
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      overflow-x: hidden;
+    }
+
+    #map {
+      height: 100vh;
+      width: 100%;
+      animation: fadeIn 1s ease-out;
+    }
+
+    .popup-content {
+      text-align: center;
+      animation: zoomIn 0.3s ease;
+    }
+
+    .popup-content h2 {
+      margin: 0 0 10px;
+      font-size: 1.2em;
+    }
+
+    .popup-content img {
+      max-width: 100%;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.3s ease, opacity 0.5s ease;
+      opacity: 0;
+      animation: fadeIn 1s forwards;
+    }
+
+    .popup-content img:hover {
+      transform: scale(1.05);
+    }
+
+    #fullscreen {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      animation: fadeIn 0.5s ease;
+    }
+
+    #fullscreen img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 10px;
+    }
+
+    #closeFullscreen {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      font-size: 2em;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+
+    @keyframes zoomIn {
+      0% { transform: scale(0.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .popup-content h2 {
+        font-size: 1em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div id="fullscreen">
+    <span id="closeFullscreen">&times;</span>
+    <img id="fullscreenImg" src="" alt="Image en plein écran">
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([39.5, -98.35], 4);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    function plaqueExiste(url) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+      });
+    }
+
+    fetch('carte.geojson')
+      .then(response => response.json())
+      .then(async data => {
+        L.geoJSON(data, {
+          style: feature => ({
+            color: feature.properties["felt:color"] || "#3388ff",
+            weight: 2,
+            fillOpacity: 0.4
+          }),
+          onEachFeature: (feature, layer) => {
+            const name = feature.properties.name;
+            const plaquePath = `plaques/${name}.jpg`;
+            const defaultIcon = "default-icon.png";
+
+            plaqueExiste(plaquePath).then(exists => {
+              const popupContent = `
+                <div class="popup-content">
+                  <h2>${name}</h2>
+                  <img src="${exists ? plaquePath : defaultIcon}" 
+                       alt="${exists ? "Plaque de " + name : "Non disponible"}" 
+                       onclick="${exists ? `openFullscreen('${plaquePath}')` : ''}" />
+                  ${!exists ? "<i>Plaque non disponible</i>" : ""}
+                </div>`;
+
+              layer.bindPopup(popupContent);
+
+              const icon = L.icon({
+                iconUrl: exists ? plaquePath : defaultIcon,
+                iconSize: [40, 25],
+                iconAnchor: [20, 12],
+                popupAnchor: [0, -12]
+              });
+
+              const center = layer.getBounds().getCenter();
+              L.marker(center, { icon }).addTo(map).bindPopup(popupContent);
+            });
+          }
+        }).addTo(map);
+      });
+
+    function openFullscreen(imgUrl) {
+      document.getElementById("fullscreenImg").src = imgUrl;
+      document.getElementById("fullscreen").style.display = "flex";
+    }
+
+    document.getElementById("fullscreen").addEventListener("click", () => {
+      document.getElementById("fullscreen").style.display = "none";
+    });
+
+    document.getElementById("closeFullscreen").addEventListener("click", (e) => {
+      e.stopPropagation();
+      document.getElementById("fullscreen").style.display = "none";
+    });
+  </script>
+</body>
+</html>
