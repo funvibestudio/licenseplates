@@ -133,7 +133,7 @@
           }),
           onEachFeature: (feature, layer) => {
             const name = feature.properties.name;
-            const plaquePath = `plaques/${name}.jpg`;
+            const plaquePath = `${name}.jpg`; 
             const defaultIcon = "default-icon.png";
 
             plaqueExiste(plaquePath).then(exists => {
